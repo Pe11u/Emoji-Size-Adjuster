@@ -3,7 +3,7 @@
  * @author tarutaru
  * @authorId 904135183555522591
  * @version 1.0.4
- * @description Adjusts the size of sent/received emojis with separate sliders for default and external emojis.
+ * @description Adjusts the size of an emoji
  * 
  * @website https://github.com/Pe11u/Emoji-Size-Adjuster
  * @source https://raw.githubusercontent.com/Pe11u/Emoji-Size-Adjuster/refs/heads/main/EmojiSizeAdjuster.plugin.js

@@ -1,92 +1,113 @@
 /**
- * @name EmojiSizeAdjuster
- * @author taru
- * @version 1.0.0
- * @description Allows you to adjust the size of emojis in Discord messages.
+ * @name Emoji Size Adjuster
+ * @author tarutaru
+ * @authorId 904135183555522591
+ * @version 1.0.4
+ * @description Adjusts the size of sent/received emojis with separate sliders for default and external emojis.
+ * 
+ * @website https://github.com/Pe11u/Emoji-Size-Adjuster
+ * @source https://raw.githubusercontent.com/Pe11u/Emoji-Size-Adjuster/refs/heads/main/EmojiSizeAdjuster.plugin.js
+ * @updateUrl https://raw.githubusercontent.com/Pe11u/Emoji-Size-Adjuster/refs/heads/main/EmojiSizeAdjuster.plugin.js
  */
 
-const { Webpack, Filters, Data, Patcher } = BdApi;
 const React = BdApi.React;
+const { Data } = BdApi;
+
+const config = {};
 
 module.exports = class EmojiSizeAdjuster {
     constructor(meta) {
-        this.meta = meta;
-        this.defaultSize = 1.5;
-        this.emojiSize = Data.load(this.meta.name, "emojiSize") || this.defaultSize;
+        config.info = meta;
     }
 
     start() {
-        this.patchMessages();
+        this.defaultEmojiSize = 32; // Default emoji size
+        this.currentEmojiSize = Data.load(config.info.name, "emojiSize") || this.defaultEmojiSize;
+
+        // Apply initial size
+        this.applyEmojiSize();
     }
 
     stop() {
-        Patcher.unpatchAll(this.meta.name);
-    }
-
-    patchMessages() {
-        const MessageContent = Webpack.getModule(Filters.byStrings("emoji", "userSelect"), { searchExports: true });
-        if (!MessageContent) {
-            console.error("MessageContent module not found");
-            return;
-        }
-
-        Patcher.after(this.meta.name, MessageContent.prototype, "render", (thisObject, args, returnValue) => {
-            const emojiElements = this.findEmojiElements(returnValue);
-            emojiElements.forEach(emoji => {
-                if (emoji && emoji.props) {
-                    if (!emoji.props.style) emoji.props.style = {};
-                    emoji.props.style.width = `${this.emojiSize}em`;
-                    emoji.props.style.height = `${this.emojiSize}em`;
-                }
-            });
-        });
-    }
-
-    findEmojiElements(tree) {
-        const result = [];
-        const search = node => {
-            if (!node) return;
-            if (node.type && node.type.displayName === "Emoji") {
-                result.push(node);
-            } else if (node.props && node.props.children) {
-                if (Array.isArray(node.props.children)) {
-                    node.props.children.forEach(search);
-                } else {
-                    search(node.props.children);
-                }
-            }
-        };
-        search(tree);
-        return result;
+        this.resetEmojiSize();
     }
 
     getSettingsPanel() {
         return () => {
-            const [emojiSize, setEmojiSize] = React.useState(this.emojiSize);
+            const [emojiSize, setEmojiSize] = React.useState(this.currentEmojiSize);
 
-            const handleChange = e => {
-                const newSize = parseFloat(e.target.value);
-                setEmojiSize(newSize);
-                this.emojiSize = newSize;
-                Data.save(this.meta.name, "emojiSize", newSize);
+            const resetSize = () => {
+                this.currentEmojiSize = this.defaultEmojiSize;
+                setEmojiSize(this.defaultEmojiSize);
+                Data.save(config.info.name, "emojiSize", this.defaultEmojiSize);
+                this.applyEmojiSize();
             };
 
-            return React.createElement(
-                "div",
-                { style: { padding: "10px" } },
-                React.createElement("h3", null, "Emoji Size Adjuster Settings"),
-                React.createElement("div", null, "Adjust the size of emojis in messages:"),
+            // CSS for text styling
+            const textStyle = {
+                color: "white",
+                textShadow: "1px 1px 5px black, 0 0 25px rgba(0,0,0,0.7), 0 0 5px black",
+                fontWeight: "bold"
+            };
+
+            return React.createElement("div", { style: { padding: "20px" } }, [
+
+                React.createElement("h4", { style: textStyle }, "Emoji Size:"),
+                React.createElement("p", { style: textStyle }, `Current size: ${emojiSize}px`),
                 React.createElement("input", {
                     type: "range",
-                    min: "0.5",
-                    max: "5",
-                    step: "0.1",
                     value: emojiSize,
-                    onChange: handleChange,
-                    style: { width: "100%" },
+                    min: 16,
+                    max: 128,
+                    step: 1,
+                    onChange: (e) => {
+                        const newSize = parseInt(e.target.value, 10);
+                        if (!isNaN(newSize)) {
+                            this.currentEmojiSize = newSize;
+                            setEmojiSize(newSize);
+                            Data.save(config.info.name, "emojiSize", newSize);
+                            this.applyEmojiSize();
+                        }
+                    },
+                    style: { width: "100%", margin: "10px 0" }
                 }),
-                React.createElement("div", null, `${emojiSize}em`)
-            );
+                React.createElement("button", {
+                    onClick: resetSize,
+                    style: {
+                        marginTop: "10px",
+                        padding: "8px 12px",
+                        backgroundColor: "#7289da",
+                        color: "#fff",
+                        border: "none",
+                        borderRadius: "5px",
+                        cursor: "pointer"
+                    }
+                }, "Reset Emoji Size"),
+
+                // Description for the emoji size setting
+                React.createElement("p", { style: { marginTop: "20px", ...textStyle } }, "Use the slider above to adjust the size of all emojis in the chat.")
+            ]);
         };
+    }
+
+    applyEmojiSize() {
+        const emojiStyle = `img.emoji { width: ${this.currentEmojiSize}px !important; height: ${this.currentEmojiSize}px !important; }`;
+
+        const styleSheet = document.getElementById("emoji-size-adjuster-style");
+        if (styleSheet) {
+            styleSheet.textContent = emojiStyle;
+        } else {
+            const newStyleSheet = document.createElement("style");
+            newStyleSheet.id = "emoji-size-adjuster-style";
+            newStyleSheet.textContent = emojiStyle;
+            document.head.appendChild(newStyleSheet);
+        }
+    }
+
+    resetEmojiSize() {
+        const styleSheet = document.getElementById("emoji-size-adjuster-style");
+        if (styleSheet) {
+            styleSheet.remove();
+        }
     }
 };
